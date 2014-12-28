@@ -1,19 +1,21 @@
+
 #include <uv.h>
 #include <stdio.h>
+#include "lwlog/lwlog.h"
 
 void idle_cb(uv_idle_t *handle) {
     static int64_t count = -1;
-    count++;
+    ++count;
     if ((count % 10000) == 0) {
         printf(".");
     }
-    if (count >= 50000) {
+    if (count >= 500000) {
         printf("\n");
         uv_idle_stop(handle);
     }
 }
 
-int main() {
+int main(void) {
     uv_idle_t idle_handle;
 
     /* 1. create the event loop */
@@ -27,6 +29,8 @@ int main() {
 
     /* 4. start the event loop */
     uv_run(loop, UV_RUN_DEFAULT);
+
+    lwlog_info("blocked");
 
     return 0;
 }
