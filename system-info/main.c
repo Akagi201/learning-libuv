@@ -1,25 +1,30 @@
 
 #include <uv.h>
-#include <log/log.h>
+#include <lwlog/lwlog.h>
 #include <stdlib.h>
 
-#define CHECK(r, msg) if (r) {                                                       \
-  log_error("%s: [%s(%d): %s]\n", msg, uv_err_name((r)), (int) r, uv_strerror((r))); \
-  exit(1);                                                                           \
-}
+#define UV_ERR(err, msg) lwlog_err("%s: [%s(%d): %s]\n", msg, uv_err_name((err)), (int)err, uv_strerror((err)))
+
+#define UV_CHECK(err, msg) \
+do { \
+  if (err != 0) { \
+    UV_ERR(err, msg); \
+    exit(1); \
+  } \
+} while(0)
 
 int main() {
-    int err;
-
+    int err = 0;
     double uptime;
-    err = uv_uptime(&uptime);
-    CHECK(err, "uv_uptime");
-    log_info("Uptime: %f", uptime);
+    size_t resident_set_memory = 0;
 
-    size_t resident_set_memory;
+    err = uv_uptime(&uptime);
+    UV_CHECK(err, "uv_uptime");
+    lwlog_info("Uptime: %f", uptime);
+
     err = uv_resident_set_memory(&resident_set_memory);
-    CHECK(err, "uv_resident_set_memory");
-    log_info("RSS: %ld", resident_set_memory);
+    UV_CHECK(err, "uv_resident_set_memory");
+    lwlog_info("RSS: %ld", resident_set_memory);
 
     return 0;
 }
