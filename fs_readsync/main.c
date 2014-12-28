@@ -1,26 +1,31 @@
 
 #include <uv.h>
 #include <stdlib.h>
-#include "log/log.h"
+#include "lwlog/lwlog.h"
 
 #define BUF_SIZE (37)
 
-#define CHECK(r, msg) if (r) {                                                       \
-  log_error("%s: [%s(%d): %s]\n", msg, uv_err_name((r)), (int) r, uv_strerror((r))); \
-  exit(1);                                                                           \
-}
+#define UV_ERR(err, msg) lwlog_err("%s: [%s(%d): %s]\n", msg, uv_err_name((err)), (int)err, uv_strerror((err)))
+
+#define UV_CHECK(err, msg) \
+do { \
+  if (err != 0) { \
+    UV_ERR(err, msg); \
+    exit(1); \
+  } \
+} while(0)
 
 static const char *filename = "expected.txt";
 
 int main() {
-  int r;
+  int err = 0;
   uv_loop_t *loop = uv_default_loop();
 
   /* 1. Open file */
   uv_fs_t open_req;
-  r = uv_fs_open(loop, &open_req, filename, O_RDONLY, S_IRUSR, NULL);
-  if (r < 0) {
-      CHECK(r, "uv_fs_open");
+  err = uv_fs_open(loop, &open_req, filename, O_RDONLY, S_IRUSR, NULL);
+  if (err < 0) {
+      UV_CHECK(err, "uv_fs_open");
   }
 
   /* 2. Create buffer and initialize it to turn it into a a uv_buf_t which adds length field */
@@ -29,21 +34,21 @@ int main() {
 
   /* 3. Use the file descriptor (the .result of the open_req) to read from the file into the buffer */
   uv_fs_t read_req;
-  r = uv_fs_read(loop, &read_req, open_req.result, &iov, 1, 0, NULL);
-  if (r < 0) {
-      CHECK(r, "uv_fs_read");
+  err = uv_fs_read(loop, &read_req, open_req.result, &iov, 1, 0, NULL);
+  if (err < 0) {
+      UV_CHECK(err, "uv_fs_read");
   }
 
   /* 4. Report the contents of the buffer */
   //log_report("%s", buf);
 
-  log_info("%s", buf);
+  lwlog_info("Read buf: %s", buf);
 
   /* 5. Close the file descriptor (`open_req.result`) */
   uv_fs_t close_req;
-  r = uv_fs_close(loop, &close_req, open_req.result, NULL);
-  if (r < 0) {
-      CHECK(r, "uv_fs_close");
+  err = uv_fs_close(loop, &close_req, open_req.result, NULL);
+  if (err < 0) {
+      UV_CHECK(err, "uv_fs_close");
   }
 
   /* always clean up your requests when you no longer need them to free unused memory */
