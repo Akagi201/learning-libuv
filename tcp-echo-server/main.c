@@ -75,16 +75,20 @@ int main(void) {
     loop = uv_default_loop();
 
     uv_tcp_t server;
-    uv_tcp_init(loop, &server);
 
-    uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
+    err = uv_tcp_init(loop, &server);
+    UV_CHECK(err, "tcp_init");
 
-    uv_tcp_bind(&server, (const struct sockaddr *) &addr, 0);
+    err = uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
+    UV_CHECK(err, "ip4_addr");
+
+    err = uv_tcp_bind(&server, (const struct sockaddr *) &addr, 0);
+    UV_CHECK(err, "tcp_bind");
 
     err = uv_listen((uv_stream_t *) &server, DEFAULT_BACKLOG, on_new_connection);
-    if (err) {
-      UV_CHECK(err, "uv_listen");
-    }
+    UV_CHECK(err, "uv_listen");
+
+    lwlog_info("listening on port %d", DEFAULT_PORT);
 
     return uv_run(loop, UV_RUN_DEFAULT);
 }
