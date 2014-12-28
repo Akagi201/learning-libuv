@@ -1,14 +1,20 @@
+
 #include <uv.h>
 #include <stdlib.h>
-#include "log/log.h"
+#include "lwlog/lwlog.h"
 
 #define BUF_SIZE (37)
 static const char *filename = "expected.txt";
 
-#define CHECK(r, msg) if (r) {                                                       \
-  log_error("%s: [%s(%d): %s]\n", msg, uv_err_name((r)), (int) r, uv_strerror((r))); \
-  exit(1);                                                                           \
-}
+#define UV_ERR(err, msg) lwlog_err("%s: [%s(%d): %s]\n", msg, uv_err_name((err)), (int)err, uv_strerror((err)))
+
+#define UV_CHECK(err, msg) \
+do { \
+  if (err != 0) { \
+    UV_ERR(err, msg); \
+    exit(1); \
+  } \
+} while(0)
 
 /* forward declarations */
 void open_cb(uv_fs_t *);
@@ -23,9 +29,9 @@ typedef struct context_struct {
 } context_t;
 
 void open_cb(uv_fs_t *open_req) {
-    int r = 0;
+    int err = 0;
     if (open_req->result < 0) {
-        CHECK(open_req->result, "uv_fs_open callback");
+        UV_CHECK(open_req->result, "uv_fs_open callback");
     }
 
     context_t *context = open_req->data;
@@ -41,23 +47,25 @@ void open_cb(uv_fs_t *open_req) {
     read_req->data = context;
 
     /* 5. Read from the file into the buffer */
-    r = uv_fs_read(uv_default_loop(), read_req, open_req->result, &iov, 1, 0, read_cb);
-    if (r < 0) {
-        CHECK(r, "uv_fs_read");
+    err = uv_fs_read(uv_default_loop(), read_req, open_req->result, &iov, 1, 0, read_cb);
+    if (err < 0) {
+        UV_CHECK(err, "uv_fs_read");
     }
+
+    return;
 }
 
 void read_cb(uv_fs_t *read_req) {
-    int r = 0;;
+    int err = 0;;
     if (read_req->result < 0) {
-        CHECK(read_req->result, "uv_fs_read callback");
+        UV_CHECK(read_req->result, "uv_fs_read callback");
     }
 
     context_t *context = read_req->data;
 
     /* 7. Report the contents of the buffer */
     //log_report("%s", read_req->bufs->base);
-    log_info("%s", read_req->bufs->base);
+    lwlog_info("Read buf: %s", read_req->bufs->base);
 
     free(read_req->bufs->base);
 
@@ -66,15 +74,17 @@ void read_cb(uv_fs_t *read_req) {
     close_req->data = context;
 
     /* 8. Close the file descriptor */
-    r = uv_fs_close(uv_default_loop(), close_req, context->open_req->result, close_cb);
-    if (r < 0) {
-        CHECK(r, "uv_fs_close");
+    err = uv_fs_close(uv_default_loop(), close_req, context->open_req->result, close_cb);
+    if (err < 0) {
+        UV_CHECK(err, "uv_fs_close");
     }
+
+    return;
 }
 
 void close_cb(uv_fs_t *close_req) {
     if (close_req->result < 0) {
-        CHECK(close_req->result, "uv_fs_close callback");
+        UV_CHECK(close_req->result, "uv_fs_close callback");
     }
 
     context_t *context = close_req->data;
@@ -84,10 +94,12 @@ void close_cb(uv_fs_t *close_req) {
     uv_fs_req_cleanup(context->read_req);
     uv_fs_req_cleanup(close_req);
     free(context);
+
+    return;
 }
 
 void init(uv_loop_t *loop) {
-    int r;
+    int err = 0;
 
     uv_fs_t *open_req = malloc(sizeof(uv_fs_t));
 
@@ -97,13 +109,15 @@ void init(uv_loop_t *loop) {
     open_req->data = context;
 
     /* 2. Open file */
-    r = uv_fs_open(loop, open_req, filename, O_RDONLY, S_IRUSR, open_cb);
-    if (r < 0) {
-        CHECK(r, "uv_fs_open");
+    err = uv_fs_open(loop, open_req, filename, O_RDONLY, S_IRUSR, open_cb);
+    if (err < 0) {
+        UV_CHECK(err, "uv_fs_open");
     }
+
+    return;
 }
 
-int main() {
+int main(void) {
     uv_loop_t *loop = uv_default_loop();
 
     init(loop);
